@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ルート案内WebAR（4スポット / 3パターン）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    #camera {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 1;
+      white-space: pre-wrap;
+    }
+    #image {
+      position: absolute;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 80%;
+      display: none;
+      z-index: 1;
+    }
+    .btn {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 2;
+      display: none;
+    }
+    #playBtn { bottom: 120px; }
+    #patternBtn { bottom: 70px; }
+    #nextBtn { bottom: 20px; }
+  </style>
+</head>
+<body>
+
+  <video id="camera" autoplay playsinline muted></video>
+  <div id="info">位置情報取得中...</div>
+  <img id="image" src="" alt="スポット画像" />
+  <button class="btn" id="playBtn" onclick="toggleAudio()">音声案内を再生</button>
+  <button class="btn" id="patternBtn" onclick="switchPattern()">パターン: A に切替</button>
+  <button class="btn" id="nextBtn" onclick="goToNextSpot()">このスポットは完了</button>
+  <audio id="audio" src=""></audio>
+
+  <script>
+    const camera = document.getElementById("camera");
+    const info = document.getElementById("info");
+    const image = document.getElementById("image");
+    const playBtn = document.getElementById("playBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const patternBtn = document.getElementById("patternBtn");
+    const audio = document.getElementById("audio");
+
+    const spots = [
+      {
+        name: "スポット1",
+        lat: 35.69284976975826,
+        lon: 140.05087273075657,
+        image: "huyuka1.jpg",
+        audio: {
+          A: "audioA1.mp3",
+          B: "audioB1.mp3",
+          C: "audioC1.mp3"
+        }
+      },
+      {
+        name: "スポット2",
+        lat: 35.69338604056195,
+        lon: 140.05110459825326,
+        image: "huyuka2.jpg",
+        audio: {
+          A: "audioA2.mp3",
+          B: "audioB2.mp3",
+          C: "audioC2.mp3"
+        }
+      },
+      {
+        name: "スポット3",
+        lat: 35.69398726520782,
+        lon: 140.0511797001022,
+        image: "huyuka3.jpg",
+        audio: {
+          A: "audioA3.mp3",
+          B: "audioB3.mp3",
+          C: "audioC3.mp3"
+        }
+      },
+      {
+        name: "スポット4",
+        lat: 35.69450000000000,
+        lon: 140.05150000000000,
+        image: "huyuka4.jpg",
+        audio: {
+          A: "audioA4.mp3",
+          B: "audioB4.mp3",
+          C: "audioC4.mp3"
+        }
+      }
+    ];
+
+    let currentIndex = 0;
+    let hasEnteredSpot = false;
+    let currentSpot = null;
+    let isPlaying = false;
+    let currentPattern = "A";
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then(stream => camera.srcObject = stream)
+      .catch(err => alert("カメラへのアクセスに失敗しました: " + err));
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function checkProximity(lat, lon) {
+      if (currentIndex >= spots.length) {
+        info.innerText = "すべてのスポットを通過しました。";
+        hideAllUI();
+        return;
+      }
+
+      const spot = spots[currentIndex];
+      const distance = getDistance(lat, lon, spot.lat, spot.lon);
+      info.innerText = `現在地: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n次の目的地: ${spot.name}（残り${distance.toFixed(1)}m）`;
+
+      if (!hasEnteredSpot && distance < 10) {
+        currentSpot = spot;
+        hasEnteredSpot = true;
+
+        audio.src = spot.audio[currentPattern];
+        image.src = spot.image;
+        image.style.display = "block";
+        playBtn.style.display = "block";
+        playBtn.innerText = isPlaying ? "音声を停止" : "音声案内を再生";
+        nextBtn.style.display = "block";
+        patternBtn.style.display = "block";
+        updatePatternButtonText();
+      }
+    }
+
+    function toggleAudio() {
+      if (!currentSpot) return;
+
+      if (!isPlaying) {
+        audio.play().catch(e => alert("音声再生に失敗しました: " + e));
+        isPlaying = true;
+        playBtn.innerText = "音声を停止";
+      } else {
+        audio.pause();
+        isPlaying = false;
+        playBtn.innerText = "音声案内を再生";
+      }
+
+      audio.onended = () => {
+        isPlaying = false;
+        playBtn.innerText = "音声案内を再生";
+      };
+    }
+
+    function switchPattern() {
+      const patterns = ["A", "B", "C"];
+      const index = patterns.indexOf(currentPattern);
+      currentPattern = patterns[(index + 1) % patterns.length];
+      updatePatternButtonText();
+
+      if (currentSpot) {
+        const newAudio = currentSpot.audio[currentPattern];
+        const wasPlaying = isPlaying;
+        audio.pause();
+        isPlaying = false;
+        audio.src = newAudio;
+        playBtn.innerText = "音声案内を再生";
+        if (wasPlaying) {
+          audio.play();
+          isPlaying = true;
+          playBtn.innerText = "音声を停止";
+        }
+      }
+    }
+
+    function updatePatternButtonText() {
+      patternBtn.innerText = `パターン: ${currentPattern} に切替`;
+    }
+
+    function goToNextSpot() {
+      if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+      }
+      currentIndex++;
+      hasEnteredSpot = false;
+      currentSpot = null;
+      hideAllUI();
+    }
+
+    function hideAllUI() {
+      image.style.display = "none";
+      playBtn.style.display = "none";
+      nextBtn.style.display = "none";
+      patternBtn.style.display = "none";
+    }
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+        pos => checkProximity(pos.coords.latitude, pos.coords.longitude),
+        err => info.innerText = "位置情報の取得に失敗しました",
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+      );
+    } else {
+      info.innerText = "位置情報が利用できません";
+    }
+  </script>
+</body>
+</html>
