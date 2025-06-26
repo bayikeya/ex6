@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>ルート案内WebAR（ループ間隔付き）</title>
+  <title>スポット1は即表示／2以降はGPS判定</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -79,7 +79,7 @@
     const patternBtn = document.getElementById("patternBtn");
     const audio = document.getElementById("audio");
 
-    const spots = [
+     const spots = [
       {
         name: "13号館前",
         lat: 35.69303591199198,
@@ -156,7 +156,8 @@
       const distance = getDistance(lat, lon, spot.lat, spot.lon);
       info.innerText = `現在地: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n次の目的地: ${spot.name}（残り${distance.toFixed(1)}m）`;
 
-      if (!hasEnteredSpot && distance < 10) {
+      // スポット2以降（index 1以上）のみGPS距離で表示
+      if (currentIndex >= 1 && !hasEnteredSpot && distance < 10) {
         currentSpot = spot;
         hasEnteredSpot = true;
 
@@ -184,7 +185,6 @@
         playBtn.innerText = "音声案内を再生";
       }
 
-      // カスタムループ（1秒間隔）
       audio.onended = () => {
         if (isPlaying) {
           setTimeout(() => {
@@ -192,7 +192,7 @@
               audio.currentTime = 0;
               audio.play();
             }
-          }, 1000); // 1秒待って再再生
+          }, 1000);
         }
       };
     }
@@ -240,6 +240,7 @@
       patternBtn.style.display = "none";
     }
 
+    // GPSでスポット2以降チェック
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
         pos => checkProximity(pos.coords.latitude, pos.coords.longitude),
@@ -249,6 +250,20 @@
     } else {
       info.innerText = "位置情報が利用できません";
     }
+
+    // ✅ スポット1は即時表示
+    window.onload = () => {
+      currentSpot = spots[0];
+      hasEnteredSpot = true;
+
+      audio.src = currentSpot.audio[currentPattern];
+      image.src = currentSpot.image;
+      image.style.display = "block";
+      playBtn.style.display = "block";
+      nextBtn.style.display = "block";
+      patternBtn.style.display = "block";
+      updatePatternButtonText();
+    };
   </script>
 </body>
 </html>
