@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>ルート案内WebAR（4スポット / 3パターン）</title>
+  <title>ルート案内WebAR（ループ間隔付き）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -184,9 +184,16 @@
         playBtn.innerText = "音声案内を再生";
       }
 
+      // カスタムループ（3秒間隔）
       audio.onended = () => {
-        isPlaying = false;
-        playBtn.innerText = "音声案内を再生";
+        if (isPlaying) {
+          setTimeout(() => {
+            if (isPlaying) {
+              audio.currentTime = 0;
+              audio.play();
+            }
+          }, 3000); // 3秒待って再再生
+        }
       };
     }
 
