@@ -184,7 +184,7 @@
         playBtn.innerText = "音声案内を再生";
       }
 
-      // カスタムループ（3秒間隔）
+      // カスタムループ（1秒間隔）
       audio.onended = () => {
         if (isPlaying) {
           setTimeout(() => {
@@ -192,7 +192,7 @@
               audio.currentTime = 0;
               audio.play();
             }
-          }, 1000); // 3秒待って再再生
+          }, 1000); // 1秒待って再再生
         }
       };
     }
